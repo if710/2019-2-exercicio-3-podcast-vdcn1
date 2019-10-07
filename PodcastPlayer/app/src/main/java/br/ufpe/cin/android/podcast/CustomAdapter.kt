@@ -16,7 +16,7 @@ import androidx.core.content.ContextCompat
 import org.jetbrains.anko.doAsync
 
 
-class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c : Context) : RecyclerView.Adapter<CustomAdapter.MyViewHolder>() {
+class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c : Context, private val isBound : Boolean, private val musicPlayerService: MusicPlayerService?) : RecyclerView.Adapter<CustomAdapter.MyViewHolder>() {
     private var TAG : String = "AdapterLog"
     private val STORAGE_PERMISSIONS = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     override fun getItemCount() =
@@ -31,13 +31,14 @@ class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c :
         val episode = Episodes[position]
         holder.title?.text = episode.title
         holder.date?.text = episode.pubDate
-        holder.play.isEnabled = true
+        holder.play.isEnabled = false
+        var debug_bool : Boolean = false
         doAsync {
             val db = EpisodesDB.getDatabase(c.applicationContext)
             val listEpisode = db.episodesDAO().buscaEpisodiopelotitulo(episode.title)
             Log.d("CustomAdapter", "path do episodio" + episode.path)
-            for(episodes in listEpisode){
-                if(episodes.path != ""){
+            for (episodes in listEpisode) {
+                if (episodes.path != "") {
                     episode.path = episodes.path
                     Log.d("CustomAdapter", "path da query no adapter" + episode.path)
                     holder.play.isEnabled = true
@@ -47,7 +48,7 @@ class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c :
 
         holder.button.setOnClickListener { view: View? ->
             holder.button.isEnabled = false
-            Log.d("Botao","Botao apertado")
+            Log.d("Botao", "Botao apertado")
             val downloadService = Intent(c, DownloadService::class.java)
             downloadService.data = Uri.parse(episode.link)
             downloadService.putExtra("titulo", episode.title)
@@ -57,8 +58,19 @@ class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c :
         holder.play.setOnClickListener { view: View? ->
             val playerService = Intent(c, MusicPlayerService::class.java)
             Log.d("SendingPath", "CurrentPath is " + episode.path)
-            playerService.putExtra("path",episode.path)
+            playerService.putExtra("path", episode.path)
             c.startService(playerService)
+
+            if(debug_bool) {
+                if (isBound) {
+                    if (musicPlayerService != null) {
+                        Log.d("CustomAdapter", "" + musicPlayerService)
+                        Log.d("CustomAdapter", "" + isBound)
+                        musicPlayerService.playMusic()
+                    }
+                }
+            }
+            debug_bool = true
         }
     }
 

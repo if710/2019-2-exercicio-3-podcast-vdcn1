@@ -1,20 +1,28 @@
 package br.ufpe.cin.android.podcast
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkInfo
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.IBinder
 import android.util.Log
+import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.itemlista.*
 import org.jetbrains.anko.doAsync
+import org.jetbrains.anko.sdk27.coroutines.onClick
 import org.jetbrains.anko.uiThread
 import java.io.BufferedReader
 import java.io.InputStream
@@ -28,19 +36,48 @@ class MainActivity : AppCompatActivity() {
     private val TAG : String = "MainActivity"
     private val STORAGE_PERMISSIONS = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     private val STORAGE_REQUEST = ON_CREATE_REQUEST + 4
+    internal var musicPlayerService: MusicPlayerService? = null
+    internal var isBound = false
+
+    private val sConn = object : ServiceConnection {
+        override fun onServiceDisconnected(p0: ComponentName?) {
+            musicPlayerService = null
+            isBound = false
+        }
+
+        override fun onServiceConnected(p0: ComponentName?, b: IBinder?) {
+            val binder = b as MusicPlayerService.MusicBinder
+            musicPlayerService = binder.service
+
+            isBound = true
+
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        val myintent = intent
+        //Log.d("MainActivityIntent" , "intent do id " + intent.getStringExtra("id"))
         //Lista de itemfeed's que guardam os episódios com as informações pedidas.
         ListItems = arrayListOf() //atribuindo isso pra caso ele não ser null
         my_recyclerview.layoutManager = LinearLayoutManager(this) //usando linearlayout
         //chamar a função pra dar parse sem usar a uiThread
         parseAsync()
-
-
     }
 
+    override fun onStop() {
+        unbindService(sConn)
+        super.onStop()
+    }
 
+    override fun onStart()  {
+        super.onStart()
+        if (!isBound) {
+            Toast.makeText(applicationContext, "Fazendo o Binding...", Toast.LENGTH_SHORT).show()
+            val bindIntent = Intent(this, MusicPlayerService::class.java)
+            isBound = bindService(bindIntent,sConn, Context.BIND_AUTO_CREATE)
+        }
+    }
 
     fun parseAsync(){
         // string do link que ira se transformar em objeto URL pra conexão
@@ -82,7 +119,8 @@ class MainActivity : AppCompatActivity() {
                 // caso contrário eu pego os episódios do db, jogo no listitem e assim coloco o adapter.
                 Log.d(TAG,"ItemsList: " + ListItems)
                 if(isNetworkAvailable()) {
-                    my_recyclerview.adapter = CustomAdapter(ListItems!!, this@MainActivity)
+                    Log.d("MainActivity", " " + musicPlayerService)
+                    my_recyclerview.adapter = CustomAdapter(ListItems!!, this@MainActivity, isBound, musicPlayerService)
                     my_recyclerview.addItemDecoration(
                         DividerItemDecoration(
                             this@MainActivity,
@@ -96,7 +134,8 @@ class MainActivity : AppCompatActivity() {
                         ListItems!!.add(ItemFeed(episode.title,"",episode.date,"","",""))
 
                     }
-                    my_recyclerview.adapter = CustomAdapter(ListItems!!, this@MainActivity)
+                    Log.d("MainActivity", " " + musicPlayerService)
+                    my_recyclerview.adapter = CustomAdapter(ListItems!!, this@MainActivity, isBound, musicPlayerService)
                     my_recyclerview.addItemDecoration(
                         DividerItemDecoration(
                             this@MainActivity,

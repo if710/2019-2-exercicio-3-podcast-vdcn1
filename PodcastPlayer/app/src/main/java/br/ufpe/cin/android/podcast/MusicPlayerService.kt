@@ -54,14 +54,14 @@ class MusicPlayerService : Service() {
         path = intent.getStringExtra("path")
         Log.d("OnStartCommand", "on start called")
         //path
-        //mPlayer = MediaPlayer.create()
+        mPlayer = MediaPlayer.create(this,Uri.fromFile(File(path!!)))
 
         //fica em loop
         mPlayer?.isLooping = true
 
         createChannel()
         // cria notificacao na area de notificacoes para usuario voltar p/ Activity
-        val notificationIntent = Intent(applicationContext, MusicPlayerService::class.java)
+        val notificationIntent = Intent(this, MusicPlayerService::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
         val notification = NotificationCompat.Builder(
