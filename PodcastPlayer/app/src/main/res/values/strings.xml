@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">PodcastPlayer</string>
+    <string name="action_download">Download</string>
+    <string name="title_activity_download">DownloadActivity</string>
+</resources>
