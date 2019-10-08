@@ -8,7 +8,12 @@ import androidx.room.PrimaryKey
 data class Episode (
     @PrimaryKey var title:String,
     var date:String,
-    var path:String
+    var path:String,
+    var link:String,
+    var pubDate:String,
+    var description:String,
+    var downloadLink:String
+
 ) {
     override fun toString(): String {
         return title

@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.IntentService
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Environment
 import android.os.Environment.DIRECTORY_DOWNLOADS
@@ -26,6 +27,11 @@ import java.net.URL
 class DownloadService : IntentService("DownloadService") {
 
 
+
+    override fun onCreate() {
+        super.onCreate()
+
+    }
     public override fun onHandleIntent(i: Intent?) {
         try {
             Log.d("Service", "Service Rodando")
@@ -63,7 +69,6 @@ class DownloadService : IntentService("DownloadService") {
             }
 
             Log.d("DownloadService", "download completo" + output.absoluteFile.toString())
-            LocalBroadcastManager.getInstance(this).sendBroadcast(Intent(DOWNLOAD_COMPLETE))
             val titulo = i.getStringExtra("titulo")
             doAsync {
                 val db = EpisodesDB.getDatabase(applicationContext)
@@ -72,14 +77,24 @@ class DownloadService : IntentService("DownloadService") {
                     episodes.path = output.absoluteFile.toString()
                     Log.d("DownloadService", "episodios que bateram com o titulo " + episodes.path)
                     db.episodesDAO().atualizarEpisodios(episodes)
-                    val cur_ep = db.episodesDAO().buscaEpisodiopelotitulo(episodes.title)
                 }
             }
+
+            LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(Intent(DOWNLOAD_COMPLETE))
 
 
         } catch (e2: IOException) {
             Log.e(javaClass.getName(), "Exception durante download", e2)
         }
+        //onDestroy()
+    }
+
+    override fun onStart(intent: Intent?, startId: Int) {
+        super.onStart(intent, startId)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
 
     }
 

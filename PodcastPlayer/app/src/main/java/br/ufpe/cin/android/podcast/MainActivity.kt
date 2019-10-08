@@ -1,10 +1,8 @@
 package br.ufpe.cin.android.podcast
 
 import android.Manifest
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
+import android.app.LauncherActivity
+import android.content.*
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkInfo
@@ -17,6 +15,7 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.android.synthetic.main.activity_main.*
@@ -32,12 +31,37 @@ import java.net.URL
 
 class MainActivity : AppCompatActivity() {
     private val ON_CREATE_REQUEST = 710
-    internal var ListItems : ArrayList<ItemFeed>? = null
+    var ListItems : ArrayList<ItemFeed>? = null
     private val TAG : String = "MainActivity"
     private val STORAGE_PERMISSIONS = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     private val STORAGE_REQUEST = ON_CREATE_REQUEST + 4
     internal var musicPlayerService: MusicPlayerService? = null
     internal var isBound = false
+    val receiver = object : BroadcastReceiver() {
+        override fun onReceive(contxt: Context?, intent: Intent?) {
+            doAsync {
+                val db = EpisodesDB.getDatabase(applicationContext)
+                var episodeList = db.episodesDAO().todosEpisodios()
+                uiThread { dbToAdapter(episodeList) }
+            }
+        }
+    }
+    private val intentFilter = IntentFilter(DownloadService.DOWNLOAD_COMPLETE)
+
+    private fun dbToAdapter(episodeList : Array<Episode>) {
+        ListItems?.clear()
+        for(episode in episodeList){
+            ListItems!!.add(ItemFeed(episode.title,episode.link,episode.date,episode.description,episode.downloadLink,episode.path))
+        }
+        my_recyclerview.layoutManager = LinearLayoutManager(this) //usando linearlayout
+        my_recyclerview.adapter = CustomAdapter(ListItems!!, this@MainActivity, isBound, musicPlayerService)
+        my_recyclerview.addItemDecoration(
+            DividerItemDecoration(
+                this@MainActivity,
+                LinearLayoutManager.VERTICAL
+            )
+        )
+    }
 
     private val sConn = object : ServiceConnection {
         override fun onServiceDisconnected(p0: ComponentName?) {
@@ -55,6 +79,7 @@ class MainActivity : AppCompatActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContentView(R.layout.activity_main)
         val myintent = intent
         //Log.d("MainActivityIntent" , "intent do id " + intent.getStringExtra("id"))
@@ -66,11 +91,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        LocalBroadcastManager.getInstance(applicationContext).unregisterReceiver(receiver)
         unbindService(sConn)
         super.onStop()
     }
 
     override fun onStart()  {
+        LocalBroadcastManager.getInstance(applicationContext).registerReceiver(receiver,intentFilter)
         super.onStart()
         if (!isBound) {
             Toast.makeText(applicationContext, "Fazendo o Binding...", Toast.LENGTH_SHORT).show()
@@ -85,9 +112,8 @@ class MainActivity : AppCompatActivity() {
         val link = "https://s3-us-west-1.amazonaws.com/podcasts.thepolyglotdeveloper.com/podcast.xml"
         val url = URL(link)
         //pegar instancia do banco de dados
-
-        var episodes : Array<Episode> = arrayOf()
         val db = EpisodesDB.getDatabase(applicationContext)
+        var episodes : Array<Episode> = arrayOf()
         doAsync{
             //caso eu tenha internet, busco os episódios pelo link
             if(isNetworkAvailable()){
@@ -131,7 +157,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 else{
                     for(episode in episodes){
-                        ListItems!!.add(ItemFeed(episode.title,"",episode.date,"","",""))
+                        ListItems!!.add(ItemFeed(episode.title,episode.link,episode.date,episode.description,episode.downloadLink,episode.path))
 
                     }
                     Log.d("MainActivity", " " + musicPlayerService)
@@ -146,7 +172,7 @@ class MainActivity : AppCompatActivity() {
                 //codigo que insere assincronamente os episódios que tem seu XML já baixado e colocando no DB
                 doAsync {
                     for (itemfeed in ListItems!!){
-                        val episode = Episode(itemfeed.title,itemfeed.pubDate,"")
+                        val episode = Episode(itemfeed.title,itemfeed.pubDate,itemfeed.path,itemfeed.link,itemfeed.pubDate,itemfeed.description,itemfeed.downloadLink)
                         db.episodesDAO().inserirEpisodios(episode)
                     }
                 }
@@ -169,4 +195,7 @@ class MainActivity : AppCompatActivity() {
     private fun hasPermission(perm: String): Boolean {
         return PackageManager.PERMISSION_GRANTED == ContextCompat.checkSelfPermission(this@MainActivity, perm)
     }
+
+
+
 }

@@ -11,14 +11,24 @@ import androidx.recyclerview.widget.RecyclerView
 import br.ufpe.cin.android.podcast.DownloadService
 import kotlinx.android.synthetic.main.itemlista.view.*
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import org.jetbrains.anko.doAsync
+import org.jetbrains.anko.uiThread
 
 
 class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c : Context, private val isBound : Boolean, private val musicPlayerService: MusicPlayerService?) : RecyclerView.Adapter<CustomAdapter.MyViewHolder>() {
     private var TAG : String = "AdapterLog"
     private val STORAGE_PERMISSIONS = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+    val db = EpisodesDB.getDatabase(c.applicationContext)
+
+
+
+
     override fun getItemCount() =
         Episodes.size
 
@@ -31,20 +41,9 @@ class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c :
         val episode = Episodes[position]
         holder.title?.text = episode.title
         holder.date?.text = episode.pubDate
-        holder.play.isEnabled = false
-        var debug_bool : Boolean = false
-        doAsync {
-            val db = EpisodesDB.getDatabase(c.applicationContext)
-            val listEpisode = db.episodesDAO().buscaEpisodiopelotitulo(episode.title)
-            Log.d("CustomAdapter", "path do episodio" + episode.path)
-            for (episodes in listEpisode) {
-                if (episodes.path != "") {
-                    episode.path = episodes.path
-                    Log.d("CustomAdapter", "path da query no adapter" + episode.path)
-                    holder.play.isEnabled = true
-                }
-            }
-        }
+        var play_pause : Boolean = true
+        if(episode.path != "") holder.play.isEnabled = true
+
 
         holder.button.setOnClickListener { view: View? ->
             holder.button.isEnabled = false
@@ -56,22 +55,42 @@ class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c :
         }
 
         holder.play.setOnClickListener { view: View? ->
-            val playerService = Intent(c, MusicPlayerService::class.java)
-            Log.d("SendingPath", "CurrentPath is " + episode.path)
-            playerService.putExtra("path", episode.path)
-            c.startService(playerService)
+            Log.d("OnPlay", "Current position " + position)
+            doAsync {
+                Log.d("CustomAdapter", "path do episodio" + episode.path)
 
-            if(debug_bool) {
-                if (isBound) {
-                    if (musicPlayerService != null) {
-                        Log.d("CustomAdapter", "" + musicPlayerService)
-                        Log.d("CustomAdapter", "" + isBound)
-                        musicPlayerService.playMusic()
+                val playerService = Intent(c, MusicPlayerService::class.java)
+                Log.d("SendingPath", "CurrentPath is " + episode.path)
+                playerService.putExtra("path", episode.path)
+                c.startService(playerService)
+                uiThread {
+                    Log.d("CustomAdapter", "" + play_pause)
+                    if(play_pause) {
+                        if (isBound) {
+                            if (musicPlayerService != null) {
+                                Log.d("CustomAdapter", "" + musicPlayerService)
+                                Log.d("CustomAdapter", "" + isBound)
+                                musicPlayerService.playMusic()
+                                play_pause = !play_pause
+                            }
+                        }
                     }
+                    else{
+                        if (isBound) {
+                            if (musicPlayerService != null) {
+                                Log.d("CustomAdapter", "" + musicPlayerService)
+                                Log.d("CustomAdapter", "" + isBound)
+                                musicPlayerService.pauseMusic()
+                                play_pause = !play_pause
+                            }
+                        }
+                    }
+
                 }
             }
-            debug_bool = true
         }
+
+
     }
 
 
@@ -96,6 +115,8 @@ class CustomAdapter (private val Episodes : ArrayList<ItemFeed>, private val c :
             c.startActivity(intent)
         }
     }
+
+
 
 
 }
