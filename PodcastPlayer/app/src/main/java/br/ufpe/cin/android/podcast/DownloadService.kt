@@ -78,9 +78,8 @@ class DownloadService : IntentService("DownloadService") {
                     Log.d("DownloadService", "episodios que bateram com o titulo " + episodes.path)
                     db.episodesDAO().atualizarEpisodios(episodes)
                 }
+                uiThread { LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(Intent(DOWNLOAD_COMPLETE)) }
             }
-
-            LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(Intent(DOWNLOAD_COMPLETE))
 
 
         } catch (e2: IOException) {

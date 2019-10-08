@@ -21,11 +21,18 @@ class MusicPlayerService : Service() {
     private val TAG = "MusicPlayerService"
     private var mPlayer: MediaPlayer? = null
     private val mStartID: Int = 0
-    private var path : String? = ""
+    private var path_ser : String? = ""
     private val mBinder = MusicBinder()
 
     override fun onCreate() {
         super.onCreate()
+        //caso o podcast acabe, ele deleta o arquivo
+        mPlayer?.setOnCompletionListener {
+            if(path_ser != ""){
+                val delete_file = File(path_ser!!)
+                delete_file.delete()
+            }
+        }
         // configurar media player
         /*Log.d("MusicPlayer", "Playing music from...  " + path)
         mPlayer = MediaPlayer.create(this, Uri.parse(path))
@@ -51,13 +58,13 @@ class MusicPlayerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
-        path = intent.getStringExtra("path")
+        //path = intent.getStringExtra("path")
         Log.d("OnStartCommand", "on start called")
         //path
-        mPlayer = MediaPlayer.create(this,Uri.fromFile(File(path!!)))
+        //mPlayer = MediaPlayer.create(this,Uri.fromFile(File(path!!)))
 
         //fica em loop
-        mPlayer?.isLooping = true
+        //mPlayer?.isLooping = true
 
         createChannel()
         // cria notificacao na area de notificacoes para usuario voltar p/ Activity
@@ -83,9 +90,14 @@ class MusicPlayerService : Service() {
         super.onDestroy()
     }
 
-    fun playMusic() {
+    fun playMusic(seek: Int) {
         if (!mPlayer!!.isPlaying) {
-            mPlayer?.start()
+            if(seek == 0)
+                mPlayer?.start()
+            else{
+                mPlayer?.seekTo(seek)
+                mPlayer?.start()
+            }
         }
     }
 
@@ -118,5 +130,26 @@ class MusicPlayerService : Service() {
     companion object {
         private val NOTIFICATION_ID = 2
     }
+
+    fun playFromFile(path : String, seek : Int){
+        //passo o path absoluto do arquivo e dou parse
+        path_ser = path
+        mPlayer = MediaPlayer.create(this, Uri.fromFile(File(path!!)))
+        mPlayer?.isLooping = true
+
+    }
+
+    fun isCreated(){
+        mPlayer!!.isPlaying
+    }
+
+    fun rPath() : String{
+        return path_ser!!
+    }
+
+    fun duration() : Int{
+        return mPlayer!!.currentPosition
+    }
+
 
 }

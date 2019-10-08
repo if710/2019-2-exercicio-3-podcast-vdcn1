@@ -37,11 +37,13 @@ class MainActivity : AppCompatActivity() {
     private val STORAGE_REQUEST = ON_CREATE_REQUEST + 4
     internal var musicPlayerService: MusicPlayerService? = null
     internal var isBound = false
+    //broadcast reciever que toda vez que termina o download atualiza o adapter
     val receiver = object : BroadcastReceiver() {
         override fun onReceive(contxt: Context?, intent: Intent?) {
             doAsync {
                 val db = EpisodesDB.getDatabase(applicationContext)
                 var episodeList = db.episodesDAO().todosEpisodios()
+                Log.d("BroadcastReceiver","Lista dos episodios " + episodeList[0].path)
                 uiThread { dbToAdapter(episodeList) }
             }
         }
@@ -51,7 +53,7 @@ class MainActivity : AppCompatActivity() {
     private fun dbToAdapter(episodeList : Array<Episode>) {
         ListItems?.clear()
         for(episode in episodeList){
-            ListItems!!.add(ItemFeed(episode.title,episode.link,episode.date,episode.description,episode.downloadLink,episode.path))
+            ListItems!!.add(ItemFeed(episode.title,episode.link,episode.date,episode.description,episode.downloadLink,episode.path,episode.duration))
         }
         my_recyclerview.layoutManager = LinearLayoutManager(this) //usando linearlayout
         my_recyclerview.adapter = CustomAdapter(ListItems!!, this@MainActivity, isBound, musicPlayerService)
@@ -61,8 +63,9 @@ class MainActivity : AppCompatActivity() {
                 LinearLayoutManager.VERTICAL
             )
         )
+        Log.d("dbToAdapter", "END")
     }
-
+    //serviço com binding
     private val sConn = object : ServiceConnection {
         override fun onServiceDisconnected(p0: ComponentName?) {
             musicPlayerService = null
@@ -81,6 +84,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         setContentView(R.layout.activity_main)
+        val playerService = Intent(applicationContext, MusicPlayerService::class.java)
+        startService(playerService)
         val myintent = intent
         //Log.d("MainActivityIntent" , "intent do id " + intent.getStringExtra("id"))
         //Lista de itemfeed's que guardam os episódios com as informações pedidas.
@@ -104,6 +109,12 @@ class MainActivity : AppCompatActivity() {
             val bindIntent = Intent(this, MusicPlayerService::class.java)
             isBound = bindService(bindIntent,sConn, Context.BIND_AUTO_CREATE)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        LocalBroadcastManager.getInstance(applicationContext).registerReceiver(receiver,intentFilter)
+
     }
 
     fun parseAsync(){
@@ -157,7 +168,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 else{
                     for(episode in episodes){
-                        ListItems!!.add(ItemFeed(episode.title,episode.link,episode.date,episode.description,episode.downloadLink,episode.path))
+                        ListItems!!.add(ItemFeed(episode.title,episode.link,episode.date,episode.description,episode.downloadLink,episode.path,episode.duration))
 
                     }
                     Log.d("MainActivity", " " + musicPlayerService)
@@ -172,7 +183,7 @@ class MainActivity : AppCompatActivity() {
                 //codigo que insere assincronamente os episódios que tem seu XML já baixado e colocando no DB
                 doAsync {
                     for (itemfeed in ListItems!!){
-                        val episode = Episode(itemfeed.title,itemfeed.pubDate,itemfeed.path,itemfeed.link,itemfeed.pubDate,itemfeed.description,itemfeed.downloadLink)
+                        val episode = Episode(itemfeed.title,itemfeed.pubDate,itemfeed.path,itemfeed.link,itemfeed.pubDate,itemfeed.description,itemfeed.downloadLink,itemfeed.duration)
                         db.episodesDAO().inserirEpisodios(episode)
                     }
                 }

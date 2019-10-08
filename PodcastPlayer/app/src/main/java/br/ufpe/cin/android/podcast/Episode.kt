@@ -12,7 +12,8 @@ data class Episode (
     var link:String,
     var pubDate:String,
     var description:String,
-    var downloadLink:String
+    var downloadLink:String,
+    var duration : Int
 
 ) {
     override fun toString(): String {
